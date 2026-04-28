@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade Lite Pro</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#141823">
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        body { 
+            background: #0c0d10; color: white; margin: 0; 
+            font-family: sans-serif; display: flex; flex-direction: column; 
+            height: 100vh; overflow: hidden;
+        }
+        .header { 
+            padding: 15px; background: #141823; border-bottom: 1px solid #363c4e;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #price { font-size: 28px; font-weight: bold; color: #26a69a; }
+        #chart-container { flex-grow: 1; width: 100%; }
+        #status { font-size: 10px; color: #848e9c; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1 style="margin:0; font-size:16px; color:#848e9c;">AUD / USD</h1>
+            <div id="status">Підключення...</div>
+        </div>
+        <div id="price">0.0000</div>
+    </div>
+    <div id="chart-container"></div>
+
+    <script>
+        // Налаштування графіка
+        const chart = LightweightCharts.createChart(document.getElementById('chart-container'), {
+            layout: { background: { color: '#0c0d10' }, textColor: '#848e9c' },
+            grid: { vertLines: { color: '#1f222d' }, horzLines: { color: '#1f222d' } },
+            timeScale: { timeVisible: true, secondsVisible: true }
+        });
+        const lineSeries = chart.addLineSeries({ color: '#26a69a', lineWidth: 2 });
+        
+        // Підгонка розміру під екран
+        const container = document.getElementById('chart-container');
+        chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+
+        // Підключення до WebSockets Binance
+        let lastPrice = 0;
+        const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@ticker');
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const currentPrice = parseFloat(data.c);
+            const priceEl = document.getElementById('price');
+            
+            priceEl.innerText = currentPrice.toFixed(4);
+
+            // Колір залежно від напрямку ціни
+            if (currentPrice > lastPrice) priceEl.style.color = '#26a69a';
+            else if (currentPrice < lastPrice) priceEl.style.color = '#ef5350';
+
+            // Оновлення графіка
+            lineSeries.update({
+                time: Math.floor(data.E / 1000),
+                value: currentPrice
+            });
+
+            lastPrice = currentPrice;
+            document.getElementById('status').innerText = "LIVE (WS)";
+        };
+
+        // Реєстрація Service Worker для PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+</body>
+</html>
