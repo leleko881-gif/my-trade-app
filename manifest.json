@@ -1,0 +1,15 @@
+{
+  "name": "Trade Lite Pro",
+  "short_name": "TradePro",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0c0d10",
+  "theme_color": "#141823",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2464/2464436.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
