@@ -4,78 +4,121 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trade Lite Pro</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#141823">
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        body { 
-            background: #0c0d10; color: white; margin: 0; 
-            font-family: sans-serif; display: flex; flex-direction: column; 
-            height: 100vh; overflow: hidden;
+        body {
+            background-color: #0c0d10;
+            color: white;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        .header { 
-            padding: 15px; background: #141823; border-bottom: 1px solid #363c4e;
-            display: flex; justify-content: space-between; align-items: center;
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
         }
-        #price { font-size: 28px; font-weight: bold; color: #26a69a; }
-        #chart-container { flex-grow: 1; width: 100%; }
-        #status { font-size: 10px; color: #848e9c; }
+        #price-display {
+            font-size: 48px;
+            font-weight: bold;
+            color: #26a69a;
+            margin: 10px 0;
+        }
+        .pair-name {
+            font-size: 18px;
+            color: #d1d4dc;
+        }
+        #chart-container {
+            width: 100%;
+            max-width: 800px;
+            height: 400px;
+            border: 1px solid #1f222d;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #787b86;
+        }
     </style>
 </head>
 <body>
+
     <div class="header">
-        <div>
-            <h1 style="margin:0; font-size:16px; color:#848e9c;">AUD / USD</h1>
-            <div id="status">Підключення...</div>
-        </div>
-        <div id="price">0.0000</div>
+        <div class="pair-name">AUD / USD</div>
+        <div id="price-display">0.0000</div>
+        <div id="connection-status" class="status">Підключення до біржі...</div>
     </div>
+
     <div id="chart-container"></div>
 
     <script>
-        // Налаштування графіка
-        const chart = LightweightCharts.createChart(document.getElementById('chart-container'), {
-            layout: { background: { color: '#0c0d10' }, textColor: '#848e9c' },
-            grid: { vertLines: { color: '#1f222d' }, horzLines: { color: '#1f222d' } },
-            timeScale: { timeVisible: true, secondsVisible: true }
-        });
-        const lineSeries = chart.addLineSeries({ color: '#26a69a', lineWidth: 2 });
-        
-        // Підгонка розміру під екран
         const container = document.getElementById('chart-container');
-        chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+        const priceDisplay = document.getElementById('price-display');
+        const statusDisplay = document.getElementById('connection-status');
 
-        // Підключення до WebSockets Binance
-        let lastPrice = 0;
-        const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@ticker');
+        // 1. Створення графіка
+        const chart = LightweightCharts.createChart(container, {
+            layout: {
+                background: { color: '#0c0d10' },
+                textColor: '#d1d4dc',
+            },
+            grid: {
+                vertLines: { color: '#1f222d' },
+                horzLines: { color: '#1f222d' },
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
+            },
+        });
+
+        // 2. Додавання лінії ціни
+        const lineSeries = chart.addLineSeries({
+            color: '#26a69a',
+            lineWidth: 2,
+        });
+
+        // Підлаштовуємо графік під розмір екрану
+        window.addEventListener('resize', () => {
+            chart.applyOptions({ width: container.clientWidth });
+        });
+
+        // 3. Підключення до Binance WebSocket (AUD/USD)
+        // Використовуємо wss:// для безпечного з'єднання
+        const symbol = 'audusdt';
+        const socket = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@ticker`);
+
+        socket.onopen = () => {
+            statusDisplay.innerText = 'З’єднано з Binance (Live)';
+            statusDisplay.style.color = '#26a69a';
+        };
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            const currentPrice = parseFloat(data.c);
-            const priceEl = document.getElementById('price');
-            
-            priceEl.innerText = currentPrice.toFixed(4);
+            const price = parseFloat(data.c).toFixed(4); // Поточна ціна
 
-            // Колір залежно від напрямку ціни
-            if (currentPrice > lastPrice) priceEl.style.color = '#26a69a';
-            else if (currentPrice < lastPrice) priceEl.style.color = '#ef5350';
+            // Оновлюємо цифру на екрані
+            priceDisplay.innerText = price;
 
-            // Оновлення графіка
+            // Додаємо точку на графік
             lineSeries.update({
-                time: Math.floor(data.E / 1000),
-                value: currentPrice
+                time: Math.floor(Date.now() / 1000),
+                value: parseFloat(price),
             });
-
-            lastPrice = currentPrice;
-            document.getElementById('status').innerText = "LIVE (WS)";
         };
 
-        // Реєстрація Service Worker для PWA
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
-        }
+        socket.onerror = (error) => {
+            statusDisplay.innerText = 'Помилка підключення';
+            statusDisplay.style.color = '#ef5350';
+        };
+
+        socket.onclose = () => {
+            statusDisplay.innerText = 'З’єднання розірвано';
+        };
     </script>
 </body>
 </html>
-   
-!
