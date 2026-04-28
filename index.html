@@ -17,7 +17,7 @@
     <div class="header">
         <div>
             <h1 style="margin:0; font-size:16px; color:#848e9c;">AUD / USD</h1>
-            <div id="status">З'єднання...</div>
+            <div id="status">З'єднання з Binance...</div>
         </div>
         <div id="price">0.0000</div>
     </div>
@@ -26,14 +26,12 @@
     <script>
         const container = document.getElementById('chart-container');
         
-        // Ініціалізація графіка
         const chart = LightweightCharts.createChart(container, {
             layout: { background: { color: '#0c0d10' }, textColor: '#848e9c' },
             grid: { vertLines: { color: '#1f222d' }, horzLines: { color: '#1f222d' } },
             timeScale: { timeVisible: true, secondsVisible: true }
         });
 
-        // Додавання лінії ціни
         const lineSeries = chart.addLineSeries({ 
             color: '#26a69a', 
             lineWidth: 2,
@@ -66,7 +64,7 @@
             document.getElementById('status').innerText = 'У мережі';
         };
 
-        socket.onerror = () => { document.getElementById('status').innerText = 'Помилка'; };
+        socket.onerror = () => { document.getElementById('status').innerText = 'Помилка мережі'; };
     </script>
 </body>
 </html>
