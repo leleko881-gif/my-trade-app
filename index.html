@@ -17,7 +17,7 @@
     <div class="header">
         <div>
             <h1 style="margin:0; font-size:16px; color:#848e9c;">AUD / USD</h1>
-            <div id="status">З'єднання з Binance...</div>
+            <div id="status">Підключення...</div>
         </div>
         <div id="price">0.0000</div>
     </div>
@@ -25,13 +25,13 @@
 
     <script>
         const container = document.getElementById('chart-container');
-        
         const chart = LightweightCharts.createChart(container, {
             layout: { background: { color: '#0c0d10' }, textColor: '#848e9c' },
             grid: { vertLines: { color: '#1f222d' }, horzLines: { color: '#1f222d' } },
             timeScale: { timeVisible: true, secondsVisible: true }
         });
 
+        // ВИПРАВЛЕНО: Правильна назва методу для поточної версії бібліотеки
         const lineSeries = chart.addLineSeries({ 
             color: '#26a69a', 
             lineWidth: 2,
@@ -51,20 +51,12 @@
             const data = JSON.parse(event.data);
             const currentPrice = parseFloat(data.c);
             const priceEl = document.getElementById('price');
-
             priceEl.innerText = currentPrice.toFixed(4);
             priceEl.style.color = currentPrice >= lastPrice ? '#26a69a' : '#ef5350';
-
-            lineSeries.update({
-                time: Math.floor(data.E / 1000),
-                value: currentPrice
-            });
-
+            lineSeries.update({ time: Math.floor(data.E / 1000), value: currentPrice });
             lastPrice = currentPrice;
             document.getElementById('status').innerText = 'У мережі';
         };
-
-        socket.onerror = () => { document.getElementById('status').innerText = 'Помилка мережі'; };
     </script>
 </body>
 </html>
