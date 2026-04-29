@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMOOTH TRADE - AUD/USDT</title>
+    <title>AUD/USDT Live Trade</title>
     <style>
         body { margin: 0; background-color: #0c0d10; color: white; font-family: sans-serif; overflow: hidden; }
         #header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; height: 50px; background: #161a1e; border-bottom: 1px solid #2b2f36; }
-        #price { font-size: 26px; font-weight: bold; font-variant-numeric: tabular-nums; }
+        #price { font-size: 26px; font-weight: bold; font-variant-numeric: tabular-nums; color: #2ebd85; }
         #chart-container { width: 100vw; height: calc(100vh - 51px); }
     </style>
 </head>
@@ -15,7 +15,7 @@
 
     <div id="header">
         <div style="font-weight: bold;">AUD / USDT <span style="color: #848e9c; font-size: 12px; margin-left: 10px;">LIVE</span></div>
-        <div id="price">Чекаємо дані...</div>
+        <div id="price">Очікування даних...</div>
     </div>
 
     <div id="chart-container"></div>
@@ -27,14 +27,16 @@
         const priceDisplay = document.getElementById('price');
         let lastPrice = 0;
 
+        // 1. Створення графіка
         const chart = LightweightCharts.createChart(chartContainer, {
             layout: { background: { color: '#0c0d10' }, textColor: '#707a8a' },
-            grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(43, 47, 54, 0.5)' } },
-            rightPriceScale: { autoScale: true, borderVisible: false },
+            grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(43, 47, 54, 0.2)' } },
+            rightPriceScale: { borderVisible: false },
             timeScale: { borderVisible: false, timeVisible: true, secondsVisible: true },
         });
 
-        const series = chart.addSeries(LightweightCharts.AreaSeries, {
+        // ВИПРАВЛЕНА ПОМИЛКА: використовуємо правильний метод addAreaSeries
+        const series = chart.addAreaSeries({
             lineColor: '#2ebd85',
             topColor: 'rgba(46, 189, 133, 0.2)',
             bottomColor: 'rgba(46, 189, 133, 0.0)',
@@ -42,37 +44,33 @@
             priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
         });
 
-        // ВИПРАВЛЕННЯ: використовуємо !miniTicker@arr для більшої стабільності
-        const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@miniTicker');
+        // 2. Підключення до Binance
+        const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@trade');
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             
-            // У miniTicker ціна лежить у полі 'c' (close price)
-            const price = parseFloat(data.c);
-            const time = Math.floor(data.E / 1000); // E - event time
+            const price = parseFloat(data.p);
+            const time = Math.floor(data.T / 1000);
 
+            // Оновлення ціни в шапці
             if (price !== lastPrice) {
                 priceDisplay.innerText = price.toFixed(4);
                 priceDisplay.style.color = price >= lastPrice ? '#2ebd85' : '#f6465d';
-                
-                series.update({
-                    time: time,
-                    value: price
-                });
-                
                 lastPrice = price;
             }
+
+            // Оновлення графіка
+            series.update({
+                time: time,
+                value: price
+            });
         };
 
-        socket.onerror = (error) => console.log('Помилка мережі:', error);
-
+        // Адаптація розміру при зміні вікна
         window.addEventListener('resize', () => {
             chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
         });
-
-        // Коригування масштабу
-        setTimeout(() => chart.timeScale().fitContent(), 2000);
     </script>
 </body>
 </html>
