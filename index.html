@@ -2,10 +2,10 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Trade Pro FINAL FIX</title>
+    <title>Trade Fix LIVE</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        body { background-color: #0c0d10; color: white; margin: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
+        body { background-color: #0c0d10; color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         #header { padding: 15px; display: flex; justify-content: space-between; background: #141823; border-bottom: 1px solid #363c4e; }
         #price { font-size: 24px; font-weight: bold; color: #26a69a; }
         #chart { flex-grow: 1; width: 100%; }
@@ -13,45 +13,54 @@
 </head>
 <body>
     <div id="header">
-        <span>AUD / USD (Binance)</span>
-        <div id="price">Очікування...</div>
+        <span>AUD / USD Live</span>
+        <div id="price">Чекаємо з'єднання...</div>
     </div>
     <div id="chart"></div>
 
     <script>
-        const chart = LightweightCharts.createChart(document.getElementById('chart'), {
-            layout: { background: { color: '#0c0d10' }, textColor: '#d1d4dc' },
-            grid: { vertLines: { color: '#1f222d' }, horzLines: { color: '#1f222d' } },
-            timeScale: { timeVisible: true, secondsVisible: true },
-        });
+        // Глобальні змінні, щоб вони були доступні всюди
+        var chart, lineSeries;
 
-        // СТВОРЮЄМО ЛІНІЮ ВІДРАЗУ
-        const lineSeries = chart.addLineSeries({ color: '#26a69a', lineWidth: 2 });
-
-        let lastPrice = 0;
-        const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@ticker');
-        
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            const price = parseFloat(data.c);
-            const priceEl = document.getElementById('price');
+        function init() {
+            const container = document.getElementById('chart');
             
-            priceEl.innerText = price.toFixed(4);
-            priceEl.style.color = price >= lastPrice ? '#26a69a' : '#ef5350';
-            
-            // Тепер помилки не буде, бо lineSeries створена вище
-            lineSeries.update({
-                time: Math.floor(data.E / 1000),
-                value: price
+            // 1. Створюємо графік
+            chart = LightweightCharts.createChart(container, {
+                layout: { background: { color: '#0c0d10' }, textColor: '#d1d4dc' },
+                grid: { vertLines: { color: '#1f222d' }, horzLines: { color: '#1f222d' } },
+                timeScale: { timeVisible: true, secondsVisible: true },
             });
-            lastPrice = price;
-        };
+
+            // 2. Створюємо лінію ВІДРАЗУ
+            lineSeries = chart.addLineSeries({ color: '#26a69a', lineWidth: 2 });
+
+            // 3. Тільки після створення лінії підключаємо Binance
+            const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@ticker');
+            
+            let lastPrice = 0;
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const price = parseFloat(data.c);
+                const priceEl = document.getElementById('price');
+                
+                priceEl.innerText = price.toFixed(4);
+                priceEl.style.color = price >= lastPrice ? '#26a69a' : '#ef5350';
+                
+                // Тепер lineSeries точно існує глобально
+                lineSeries.update({
+                    time: Math.floor(data.E / 1000),
+                    value: price
+                });
+                lastPrice = price;
+            };
+        }
+
+        // Запуск після завантаження сторінки
+        window.onload = init;
 
         window.onresize = () => {
-            chart.applyOptions({ 
-                width: document.getElementById('chart').clientWidth, 
-                height: document.getElementById('chart').clientHeight 
-            });
+            if (chart) chart.applyOptions({ width: document.getElementById('chart').clientWidth, height: document.getElementById('chart').clientHeight });
         };
     </script>
 </body>
