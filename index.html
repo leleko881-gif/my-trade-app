@@ -14,63 +14,71 @@
 <body>
 
     <div id="header">
-        <div style="font-weight: bold;">AUD / USDT <span style="color: #848e9c; font-size: 12px; margin-left: 10px;">LIVE</span></div>
-        <div id="price">Очікування даних...</div>
+        <div style="font-weight: bold;">AUD / USDT <span style="color: #848e9c; font-size: 12px; margin-left: 10px;">LIVE STREAM</span></div>
+        <div id="price">Завантаження...</div>
     </div>
 
-    <div id="chart-container"></div>
+    <div id="tv_chart_container"></div>
 
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 
     <script>
-        const chartContainer = document.getElementById('chart-container');
-        const priceDisplay = document.getElementById('price');
-        let lastPrice = 0;
+        // Чекаємо повного завантаження сторінки
+        window.onload = () => {
+            const container = document.getElementById('tv_chart_container');
+            const priceDisplay = document.getElementById('price');
+            let lastPrice = 0;
 
-        // 1. Створення графіка
-        const chart = LightweightCharts.createChart(chartContainer, {
-            layout: { background: { color: '#0c0d10' }, textColor: '#707a8a' },
-            grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(43, 47, 54, 0.2)' } },
-            rightPriceScale: { borderVisible: false },
-            timeScale: { borderVisible: false, timeVisible: true, secondsVisible: true },
-        });
+            // 1. Ініціалізація графіка
+            const chart = LightweightCharts.createChart(container, {
+                width: window.innerWidth,
+                height: window.innerHeight - 51,
+                layout: { background: { color: '#0c0d10' }, textColor: '#707a8a' },
+                grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(43, 47, 54, 0.2)' } },
+                rightPriceScale: { borderVisible: false, autoScale: true },
+                timeScale: { borderVisible: false, timeVisible: true, secondsVisible: true },
+            });
 
-        // ВИПРАВЛЕНА ПОМИЛКА: використовуємо правильний метод addAreaSeries
-        const series = chart.addAreaSeries({
-            lineColor: '#2ebd85',
-            topColor: 'rgba(46, 189, 133, 0.2)',
-            bottomColor: 'rgba(46, 189, 133, 0.0)',
-            lineWidth: 2,
-            priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
-        });
+            // 2. Створення області графіка (Area)
+            const areaSeries = chart.addAreaSeries({
+                lineColor: '#2ebd85',
+                topColor: 'rgba(46, 189, 133, 0.2)',
+                bottomColor: 'rgba(46, 189, 133, 0.0)',
+                lineWidth: 2,
+                priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
+            });
 
-        // 2. Підключення до Binance
-        const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@trade');
+            // 3. WebSocket підключення (Combined Stream для стабільності)
+            const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@trade');
 
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            
-            const price = parseFloat(data.p);
-            const time = Math.floor(data.T / 1000);
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const price = parseFloat(data.p);
+                const time = Math.floor(data.T / 1000);
 
-            // Оновлення ціни в шапці
-            if (price !== lastPrice) {
-                priceDisplay.innerText = price.toFixed(4);
-                priceDisplay.style.color = price >= lastPrice ? '#2ebd85' : '#f6465d';
-                lastPrice = price;
-            }
+                // Оновлюємо інтерфейс
+                if (price !== lastPrice) {
+                    priceDisplay.innerText = price.toFixed(4);
+                    priceDisplay.style.color = price >= lastPrice ? '#2ebd85' : '#f6465d';
+                    
+                    // Додаємо точку на графік
+                    areaSeries.update({
+                        time: time,
+                        value: price
+                    });
+                    
+                    lastPrice = price;
+                }
+            };
 
-            // Оновлення графіка
-            series.update({
-                time: time,
-                value: price
+            // Обробка зміни розміру вікна
+            window.addEventListener('resize', () => {
+                chart.applyOptions({ 
+                    width: window.innerWidth, 
+                    height: window.innerHeight - 51 
+                });
             });
         };
-
-        // Адаптація розміру при зміні вікна
-        window.addEventListener('resize', () => {
-            chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
-        });
     </script>
 </body>
 </html>
