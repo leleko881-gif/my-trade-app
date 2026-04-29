@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMOOTH TRADE - BTC/USDT</title>
+    <title>FOREX LIVE - AUD/USD</title>
     <style>
         body { margin: 0; background-color: #0c0d10; color: white; font-family: sans-serif; overflow: hidden; }
         #header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; height: 50px; background: #161a1e; border-bottom: 1px solid #2b2f36; }
-        #price { font-size: 26px; font-weight: bold; font-variant-numeric: tabular-nums; min-width: 150px; text-align: right; }
+        #price { font-size: 26px; font-weight: bold; font-variant-numeric: tabular-nums; color: #2ebd85; }
         #chart-container { width: 100vw; height: calc(100vh - 51px); }
     </style>
 </head>
 <body>
 
     <div id="header">
-        <div style="font-weight: bold;">BTC / USDT <span style="color: #848e9c; font-size: 12px; margin-left: 10px;">SMOOTH LIVE</span></div>
-        <div id="price">0.00</div>
+        <div style="font-weight: bold;">AUD / USD <span style="color: #848e9c; font-size: 12px; margin-left: 10px;">FOREX LIVE</span></div>
+        <div id="price">0.00000</div>
     </div>
 
     <div id="chart-container"></div>
@@ -28,13 +28,20 @@
         
         let lastPrice = 0;
         let nextUpdateAllowed = 0;
-        const UPDATE_INTERVAL = 200; // Оновлювати графік не частіше ніж раз на 200 мс
+        const UPDATE_INTERVAL = 200; 
 
-        // 1. Створення графіка
+        // 1. Ініціалізація графіка
         const chart = LightweightCharts.createChart(chartContainer, {
             layout: { background: { color: '#0c0d10' }, textColor: '#707a8a' },
-            grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(43, 47, 54, 0.5)' } },
-            rightPriceScale: { autoScale: true, borderVisible: false },
+            grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(43, 47, 54, 0.3)' } },
+            rightPriceScale: { 
+                autoScale: true, 
+                borderVisible: false,
+                // Налаштування для валют (більше знаків)
+                localization: {
+                    priceFormatter: price => price.toFixed(5),
+                },
+            },
             timeScale: { borderVisible: false, timeVisible: true, secondsVisible: true },
             crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
         });
@@ -44,11 +51,17 @@
             topColor: 'rgba(46, 189, 133, 0.2)',
             bottomColor: 'rgba(46, 189, 133, 0.0)',
             lineWidth: 2,
-            priceLineVisible: false,
+            // Вказуємо точність 5 знаків для валютної пари
+            priceFormat: {
+                type: 'price',
+                precision: 5,
+                minMove: 0.00001,
+            },
         });
 
-        // 2. WebSocket
-        const socket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+        // 2. WebSocket для AUD/USD на Binance
+        // Важливо: на Binance валютні пари пишуться як audusd
+        const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusd@trade');
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -56,15 +69,13 @@
             const time = Math.floor(data.T / 1000);
             const now = Date.now();
 
-            // Оновлюємо цифру ціни завжди (вона може скакати, це нормально)
             if (price !== lastPrice) {
-                priceDisplay.innerText = price.toFixed(2);
+                // Відображаємо 5 знаків після коми
+                priceDisplay.innerText = price.toFixed(5);
                 priceDisplay.style.color = price >= lastPrice ? '#2ebd85' : '#f6465d';
                 lastPrice = price;
             }
 
-            // Оновлюємо лінію ГРАФІКА лише через певні інтервали часу
-            // Це прибирає візуальне "тремтіння" лінії
             if (now > nextUpdateAllowed) {
                 series.update({
                     time: time,
@@ -78,7 +89,6 @@
             chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
         });
 
-        // Початковий фокус
         setTimeout(() => chart.timeScale().fitContent(), 1000);
     </script>
 </body>
