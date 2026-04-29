@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LIVE TRADE V6 - BTC/USDT</title>
     <style>
-        body { margin: 0; background-color: #000; color: white; font-family: sans-serif; overflow: hidden; }
-        #header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; height: 45px; border-bottom: 1px solid #1f222d; }
-        #price { font-size: 24px; font-weight: bold; transition: color 0.2s; }
+        body { margin: 0; background-color: #131722; color: white; font-family: sans-serif; overflow: hidden; }
+        #header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; height: 45px; border-bottom: 1px solid #2a2e39; background: #131722; }
+        #price { font-size: 24px; font-weight: bold; }
         #chart-container { width: 100vw; height: calc(100vh - 66px); }
     </style>
 </head>
 <body>
 
     <div id="header">
-        <div style="font-weight: bold; letter-spacing: 1px;">BTC / USDT <span style="color: #5d606b; font-size: 12px;">REAL-TIME</span></div>
-        <div id="price">0.00</div>
+        <div style="font-weight: bold; color: #d1d4dc;">BTC / USDT <span style="color: #00ffcc; font-size: 12px;">LIVE</span></div>
+        <div id="price">Завантаження...</div>
     </div>
 
     <div id="chart-container"></div>
@@ -26,14 +26,13 @@
         const chartContainer = document.getElementById('chart-container');
         const priceDisplay = document.getElementById('price');
         let lastPrice = 0;
-        let isFirstData = true;
 
         // 1. Створення графіка
         const chart = LightweightCharts.createChart(chartContainer, {
-            layout: { background: { color: '#000000' }, textColor: '#d1d4dc' },
+            layout: { background: { color: '#131722' }, textColor: '#d1d4dc' },
             grid: {
-                vertLines: { color: 'rgba(42, 46, 57, 0.1)' },
-                horzLines: { color: 'rgba(42, 46, 57, 0.1)' },
+                vertLines: { color: '#2a2e39' },
+                horzLines: { color: '#2a2e39' },
             },
             rightPriceScale: {
                 autoScale: true,
@@ -43,53 +42,55 @@
                 borderVisible: false,
                 timeVisible: true,
                 secondsVisible: true,
-                shiftVisibleRangeOnNewBar: true, // Автоматичний зсув до нових даних
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal,
             },
         });
 
-        // 2. Створення серії
-        const lineSeries = chart.addSeries(LightweightCharts.AreaSeries, {
+        // 2. Створення серії (Area для гарного вигляду)
+        const areaSeries = chart.addSeries(LightweightCharts.AreaSeries, {
             lineColor: '#00ffcc',
-            topColor: 'rgba(0, 255, 204, 0.2)',
-            bottomColor: 'rgba(0, 255, 204, 0.0)',
+            topColor: 'rgba(0, 255, 204, 0.4)',
+            bottomColor: 'rgba(0, 255, 204, 0.05)',
             lineWidth: 2,
         });
 
-        // 3. WebSocket з виправленою логікою часу
-        const socket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@kline_1m');
+        // 3. WebSocket Binance
+        const socket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            const kline = data.k;
-            const price = parseFloat(kline.c);
+            const price = parseFloat(data.p); // 'p' - це ціна в потоці @trade
             
-            // Binance дає час у мілісекундах, перетворюємо у секунди для бібліотеки
-            const time = Math.floor(kline.t / 1000);
+            // ВИПРАВЛЕННЯ ЧАСУ: використовуємо поточний час у секундах
+            // Це гарантує, що кожна нова ціна малює нову точку на графіку
+            const currentTime = Math.floor(Date.now() / 1000);
 
-            // Оновлюємо серію
-            lineSeries.update({
-                time: time,
+            areaSeries.update({
+                time: currentTime,
                 value: price
             });
 
-            // Якщо це найперші дані - фокусуємо графік, щоб побачити лінію
-            if (isFirstData) {
-                chart.timeScale().fitContent();
-                isFirstData = false;
-            }
-
-            // Оновлення тексту ціни та кольору
+            // Оновлення тексту ціни
             priceDisplay.innerText = price.toFixed(2);
-            if (price > lastPrice) priceDisplay.style.color = '#00ffcc';
-            else if (price < lastPrice) priceDisplay.style.color = '#ff4444';
+            
+            if (price > lastPrice) {
+                priceDisplay.style.color = '#00ffcc';
+            } else if (price < lastPrice) {
+                priceDisplay.style.color = '#f23645';
+            }
             
             lastPrice = price;
         };
 
-        // Адаптивність
+        // Адаптивність при зміні розміру вікна
         window.addEventListener('resize', () => {
             chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
         });
+
+        // Авто-фокус на нових даних при старті
+        chart.timeScale().fitContent();
     </script>
 </body>
 </html>
