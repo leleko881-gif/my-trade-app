@@ -15,7 +15,7 @@
 
     <div id="header">
         <div style="font-weight: bold;">AUD / USDT <span style="color: #848e9c; font-size: 12px; margin-left: 10px;">LIVE</span></div>
-        <div id="price">Завантаження...</div>
+        <div id="price">Чекаємо дані...</div>
     </div>
 
     <div id="chart-container"></div>
@@ -25,10 +25,7 @@
     <script>
         const chartContainer = document.getElementById('chart-container');
         const priceDisplay = document.getElementById('price');
-        
         let lastPrice = 0;
-        let nextUpdateAllowed = 0;
-        const UPDATE_INTERVAL = 200; 
 
         const chart = LightweightCharts.createChart(chartContainer, {
             layout: { background: { color: '#0c0d10' }, textColor: '#707a8a' },
@@ -42,42 +39,40 @@
             topColor: 'rgba(46, 189, 133, 0.2)',
             bottomColor: 'rgba(46, 189, 133, 0.0)',
             lineWidth: 2,
-            priceFormat: {
-                type: 'price',
-                precision: 4,
-                minMove: 0.0001,
-            },
+            priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
         });
 
-        // Використовуємо audusdt (це пара австралійський долар до стейблкоїна USDT)
-        const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@trade');
+        // ВИПРАВЛЕННЯ: використовуємо !miniTicker@arr для більшої стабільності
+        const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@miniTicker');
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            const price = parseFloat(data.p);
-            const time = Math.floor(data.T / 1000);
-            const now = Date.now();
+            
+            // У miniTicker ціна лежить у полі 'c' (close price)
+            const price = parseFloat(data.c);
+            const time = Math.floor(data.E / 1000); // E - event time
 
             if (price !== lastPrice) {
                 priceDisplay.innerText = price.toFixed(4);
                 priceDisplay.style.color = price >= lastPrice ? '#2ebd85' : '#f6465d';
-                lastPrice = price;
-            }
-
-            if (now > nextUpdateAllowed) {
+                
                 series.update({
                     time: time,
                     value: price
                 });
-                nextUpdateAllowed = now + UPDATE_INTERVAL;
+                
+                lastPrice = price;
             }
         };
+
+        socket.onerror = (error) => console.log('Помилка мережі:', error);
 
         window.addEventListener('resize', () => {
             chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
         });
 
-        setTimeout(() => chart.timeScale().fitContent(), 1500);
+        // Коригування масштабу
+        setTimeout(() => chart.timeScale().fitContent(), 2000);
     </script>
 </body>
 </html>
