@@ -3,22 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trade Lite Pro V2</title>
+    <title>Trade Lite Pro</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         body { background-color: #0c0d10; color: white; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .header { padding: 15px; background: #141823; border-bottom: 1px solid #363c4e; display: flex; justify-content: space-between; align-items: center; }
         #price { font-size: 28px; font-weight: bold; color: #26a69a; }
         #chart-container { flex-grow: 1; width: 100%; height: 100%; }
-        #status { font-size: 12px; color: #848e9c; }
+        #status { font-size: 18px; color: #848e9c; }
     </style>
 </head>
 <body>
     <div class="header">
-        <div><div id="status">AUD / USD (Binance)</div></div>
+        <div>
+            <h1 style="margin:0; font-size:16px; color:#848e9c;">AUD / USD (Binance)</h1>
+            <div id="status">Підключення...</div>
+        </div>
         <div id="price">0.0000</div>
     </div>
     <div id="chart-container"></div>
+
     <script>
         const container = document.getElementById('chart-container');
         const chart = LightweightCharts.createChart(container, {
@@ -27,7 +31,6 @@
             timeScale: { timeVisible: true, secondsVisible: true }
         });
 
-        // ОСЬ ЦЕЙ РЯДОК БУВ ПРОПУЩЕНИЙ:
         const lineSeries = chart.addLineSeries({ color: '#26a69a', lineWidth: 2 });
 
         window.addEventListener('resize', () => {
@@ -35,14 +38,23 @@
         });
 
         let lastPrice = 0;
+        // ОСЬ ЦЕЙ БЛОК ВІДПОВІДАЄ ЗА ЦІНУ:
         const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@ticker');
+
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             const currentPrice = parseFloat(data.c);
             const priceEl = document.getElementById('price');
+            const statusEl = document.getElementById('status');
+            
+            statusEl.style.display = 'none';
             priceEl.innerText = currentPrice.toFixed(4);
             priceEl.style.color = currentPrice >= lastPrice ? '#26a69a' : '#ef5350';
-            lineSeries.update({ time: Math.floor(data.E / 1000), value: currentPrice });
+
+            lineSeries.update({
+                time: Math.floor(data.E / 1000),
+                value: currentPrice
+            });
             lastPrice = currentPrice;
         };
     </script>
