@@ -2,72 +2,106 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>LIVE TRADE V6</title>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIVE TRADE V6 - BTC/USDT</title>
     <style>
-        html, body { height: 100%; margin: 0; background-color: #0c0d10; color: white; font-family: sans-serif; overflow: hidden; }
-        #header { height: 60px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; background: #141823; border-bottom: 1px solid #363c4e; }
-        #price { font-size: 32px; font-weight: bold; color: #26a69a; min-width: 150px; text-align: right; }
-        #chart { width: 100vw; height: calc(100vh - 60px); }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: white;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+        #header {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: #000;
+            z-index: 10;
+        }
+        #price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ffcc;
+        }
+        #chart-container {
+            width: 100vw;
+            height: calc(100vh - 60px);
+        }
     </style>
 </head>
 <body>
+
     <div id="header">
-        <span style="font-size: 20px;">BTC / USDT (Real-Time)</span>
+        <div>BTC / USDT (Real-Time)</div>
         <div id="price">0.00</div>
     </div>
-    <div id="chart"></div>
+
+    <div id="chart-container"></div>
+
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 
     <script>
-        const container = document.getElementById('chart');
-        const chart = LightweightCharts.createChart(container, {
-            layout: { background: { color: '#0c0d10' }, textColor: '#d1d4dc' },
-            grid: { vertLines: { color: '#1f222d' }, horzLines: { color: '#1f222d' } },
-            timeScale: { timeVisible: true, secondsVisible: true },
+        const chartContainer = document.getElementById('chart-container');
+        const priceDisplay = document.getElementById('price');
+
+        // 1. Створення графіка
+        const chart = LightweightCharts.createChart(chartContainer, {
+            layout: {
+                backgroundColor: '#000000',
+                textColor: '#d1d4dc',
+            },
+            grid: {
+                vertLines: { color: '#1f222d' },
+                horzLines: { color: '#1f222d' },
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal,
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
+            },
         });
 
-        const lineSeries = chart.addLineSeries({ 
-            color: '#26a69a', 
-            lineWidth: 3,
-            priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
+        // 2. ВИПРАВЛЕНА ПОМИЛКА: Використовуємо addSeries замість addLineSeries
+        const lineSeries = chart.addSeries(LightweightCharts.LineSeries, {
+            color: '#00ffcc',
+            lineWidth: 2,
         });
 
-        let lastPrice = 0;
+        // Підлаштування розміру під вікно
+        window.addEventListener('resize', () => {
+            chart.applyOptions({ 
+                width: chartContainer.clientWidth, 
+                height: chartContainer.clientHeight 
+            });
+        });
 
-        async function getPrice() {
-            try {
-                // Використовуємо api1, api2 або api3 для обходу блокувань + мітку часу для свіжості даних
-                const servers = ['api.binance.com', 'api1.binance.com', 'api2.binance.com', 'api3.binance.com'];
-                const randomServer = servers[Math.floor(Math.random() * servers.length)];
-                
-                const response = await fetch(`https://${randomServer}/api/v3/ticker/price?symbol=BTCUSDT&_t=${Date.now()}`);
-                const data = await response.json();
-                const price = parseFloat(data.price);
+        // 3. Отримання даних у реальному часі через Binance WebSocket
+        const socket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@kline_1m');
 
-                if (price !== lastPrice) {
-                    const priceEl = document.getElementById('price');
-                    priceEl.innerText = price.toFixed(2);
-                    
-                    // Анімація кольору (блимання при зміні)
-                    priceEl.style.color = price >= lastPrice ? '#26a69a' : '#ef5350';
-                    
-                    lineSeries.update({
-                        time: Math.floor(Date.now() / 1000),
-                        value: price
-                    });
-                    lastPrice = price;
-                }
-            } catch (err) {
-                console.log("Пошук сигналу...");
-            }
-        }
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const kline = data.k;
+            
+            const price = parseFloat(kline.c); // Поточна ціна закриття
+            const time = kline.t / 1000;      // Час у секундах
 
-        // Запитуємо ціну кожну секунду (1000 мс)
-        setInterval(getPrice, 1000);
-        getPrice();
+            // Оновлюємо графік
+            lineSeries.update({
+                time: time,
+                value: price
+            });
 
-        window.onresize = () => {
-            chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+            // Оновлюємо цифру ціни зверху
+            priceDisplay.innerText = price.toFixed(2);
+            priceDisplay.style.color = price >= parseFloat(priceDisplay.innerText) ? '#00ffcc' : '#ff4444';
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket Error:', error);
         };
     </script>
 </body>
