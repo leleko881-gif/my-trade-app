@@ -2,57 +2,79 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Trade Pro - BITCOIN LIVE</title>
+    <title>BTC LIVE - Stable Version</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         html, body { height: 100%; margin: 0; padding: 0; background-color: #0c0d10; color: white; font-family: sans-serif; overflow: hidden; }
         #header { height: 60px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; background: #141823; border-bottom: 1px solid #363c4e; }
-        #price { font-size: 26px; font-weight: bold; color: #26a69a; }
+        #price { font-size: 26px; font-weight: bold; color: #f7931a; }
+        #status { font-size: 12px; color: #848e9c; }
         #chart { width: 100vw; height: calc(100vh - 60px); }
     </style>
 </head>
 <body>
     <div id="header">
-        <span>BTC / USDT (Binance Live)</span>
-        <div id="price">Підключення до BTC...</div>
+        <div>
+            <span>BTC / USDT</span><br>
+            <span id="status">Підключення...</span>
+        </div>
+        <div id="price">0.00 $</div>
     </div>
     <div id="chart"></div>
 
     <script>
         window.addEventListener('load', () => {
             const container = document.getElementById('chart');
-            
             const chart = LightweightCharts.createChart(container, {
                 layout: { background: { color: '#0c0d10' }, textColor: '#d1d4dc' },
                 grid: { vertLines: { color: '#1f222d' }, horzLines: { color: '#1f222d' } },
                 timeScale: { timeVisible: true, secondsVisible: true },
             });
 
-            // Налаштування для BTC: точність 2 знаки (наприклад, 65000.50)
             const lineSeries = chart.addLineSeries({ 
-                color: '#f7931a', // Помаранчевий колір Bitcoin
+                color: '#f7931a', 
                 lineWidth: 2,
                 priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
             });
 
-            // МІНЯЄМО АДРЕСУ НА BTCUSDT
-            const socket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
+            let socket;
             let lastPrice = 0;
 
-            socket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                const price = parseFloat(data.c);
-                const priceEl = document.getElementById('price');
-                
-                priceEl.innerText = price.toFixed(2) + " $";
-                priceEl.style.color = price >= lastPrice ? '#26a69a' : '#ef5350';
-                
-                lineSeries.update({
-                    time: Math.floor(data.E / 1000),
-                    value: price
-                });
-                lastPrice = price;
-            };
+            function connect() {
+                // Використовуємо інший порт 443 (часто допомагає обійти блокування)
+                socket = new WebSocket('wss://stream.binance.com:443/ws/btcusdt@ticker');
+
+                socket.onopen = () => {
+                    document.getElementById('status').innerText = "Онлайн (Binance)";
+                    document.getElementById('status').style.color = "#26a69a";
+                };
+
+                socket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    const price = parseFloat(data.c);
+                    const priceEl = document.getElementById('price');
+                    
+                    priceEl.innerText = price.toLocaleString() + " $";
+                    priceEl.style.color = price >= lastPrice ? '#26a69a' : '#ef5350';
+                    
+                    lineSeries.update({
+                        time: Math.floor(data.E / 1000),
+                        value: price
+                    });
+                    lastPrice = price;
+                };
+
+                socket.onerror = (err) => {
+                    document.getElementById('status').innerText = "Помилка мережі. Перепідключення...";
+                    document.getElementById('status').style.color = "#ef5350";
+                };
+
+                socket.onclose = () => {
+                    setTimeout(connect, 3000); // Пробуємо знову через 3 секунди
+                };
+            }
+
+            connect();
 
             window.addEventListener('resize', () => {
                 chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
