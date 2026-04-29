@@ -10,31 +10,39 @@
             padding: 0;
             background-color: #000;
             color: white;
-            font-family: sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
         }
         #header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             padding: 10px 20px;
             background: #000;
-            z-index: 10;
+            border-bottom: 1px solid #1f222d;
+            height: 40px;
+        }
+        #symbol {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 1px;
         }
         #price {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
             color: #00ffcc;
+            transition: color 0.2s;
         }
         #chart-container {
             width: 100vw;
-            height: calc(100vh - 60px);
+            height: calc(100vh - 61px);
         }
     </style>
 </head>
 <body>
 
     <div id="header">
-        <div>BTC / USDT (Real-Time)</div>
+        <div id="symbol">BTC / USDT <span style="font-size: 12px; color: #888;">REAL-TIME</span></div>
         <div id="price">0.00</div>
     </div>
 
@@ -45,33 +53,53 @@
     <script>
         const chartContainer = document.getElementById('chart-container');
         const priceDisplay = document.getElementById('price');
+        let lastPrice = 0;
 
-        // 1. Створення графіка
+        // 1. Ініціалізація графіка з покращеними налаштуваннями
         const chart = LightweightCharts.createChart(chartContainer, {
             layout: {
-                backgroundColor: '#000000',
+                background: { type: 'solid', color: '#000000' },
                 textColor: '#d1d4dc',
+                fontSize: 12,
             },
             grid: {
-                vertLines: { color: '#1f222d' },
-                horzLines: { color: '#1f222d' },
+                vertLines: { color: 'rgba(42, 46, 57, 0.2)' },
+                horzLines: { color: 'rgba(42, 46, 57, 0.2)' },
+            },
+            rightPriceScale: {
+                borderVisible: false,
+                autoScale: true, // Це виправляє проблему горизонтальних ліній
+            },
+            timeScale: {
+                borderVisible: false,
+                timeVisible: true,
+                secondsVisible: true,
             },
             crosshair: {
                 mode: LightweightCharts.CrosshairMode.Normal,
+                vertLine: { labelVisible: true },
+                horzLine: { labelVisible: true },
             },
-            timeScale: {
-                timeVisible: true,
-                secondsVisible: false,
-            },
+            handleScale: {
+                mouseWheel: true,
+                pinch: true,
+            }
         });
 
-        // 2. ВИПРАВЛЕНА ПОМИЛКА: Використовуємо addSeries замість addLineSeries
+        // 2. Створення лінійної серії (виправлений синтаксис v4)
         const lineSeries = chart.addSeries(LightweightCharts.LineSeries, {
             color: '#00ffcc',
             lineWidth: 2,
+            priceLineVisible: true,
+            lastValueVisible: true,
+            priceFormat: {
+                type: 'price',
+                precision: 2,
+                minMove: 0.01,
+            },
         });
 
-        // Підлаштування розміру під вікно
+        // Адаптація під розмір вікна
         window.addEventListener('resize', () => {
             chart.applyOptions({ 
                 width: chartContainer.clientWidth, 
@@ -79,29 +107,39 @@
             });
         });
 
-        // 3. Отримання даних у реальному часі через Binance WebSocket
+        // 3. Робота з даними через WebSocket
         const socket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@kline_1m');
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             const kline = data.k;
             
-            const price = parseFloat(kline.c); // Поточна ціна закриття
-            const time = kline.t / 1000;      // Час у секундах
+            const price = parseFloat(kline.c);
+            const time = Math.floor(kline.t / 1000);
 
-            // Оновлюємо графік
+            // Оновлення графіка
             lineSeries.update({
                 time: time,
                 value: price
             });
 
-            // Оновлюємо цифру ціни зверху
-            priceDisplay.innerText = price.toFixed(2);
-            priceDisplay.style.color = price >= parseFloat(priceDisplay.innerText) ? '#00ffcc' : '#ff4444';
+            // Оновлення відображення ціни з індикацією напрямку (зелений/червоний)
+            if (price > lastPrice) {
+                priceDisplay.style.color = '#00ffcc';
+            } else if (price < lastPrice) {
+                priceDisplay.style.color = '#ff4444';
+            }
+            
+            priceDisplay.innerText = price.toLocaleString('en-US', { minimumFractionDigits: 2 });
+            lastPrice = price;
         };
 
         socket.onerror = (error) => {
             console.error('WebSocket Error:', error);
+        };
+
+        socket.onclose = () => {
+            console.log('З’єднання розірвано. Спробуйте оновити сторінку.');
         };
     </script>
 </body>
