@@ -5,44 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LIVE TRADE V6 - BTC/USDT</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-        }
-        #header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 20px;
-            background: #000;
-            border-bottom: 1px solid #1f222d;
-            height: 40px;
-        }
-        #symbol {
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: 1px;
-        }
-        #price {
-            font-size: 22px;
-            font-weight: bold;
-            color: #00ffcc;
-            transition: color 0.2s;
-        }
-        #chart-container {
-            width: 100vw;
-            height: calc(100vh - 61px);
-        }
+        body { margin: 0; background-color: #000; color: white; font-family: sans-serif; overflow: hidden; }
+        #header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; height: 45px; border-bottom: 1px solid #1f222d; }
+        #price { font-size: 24px; font-weight: bold; transition: color 0.2s; }
+        #chart-container { width: 100vw; height: calc(100vh - 66px); }
     </style>
 </head>
 <body>
 
     <div id="header">
-        <div id="symbol">BTC / USDT <span style="font-size: 12px; color: #888;">REAL-TIME</span></div>
+        <div style="font-weight: bold; letter-spacing: 1px;">BTC / USDT <span style="color: #5d606b; font-size: 12px;">REAL-TIME</span></div>
         <div id="price">0.00</div>
     </div>
 
@@ -54,93 +26,70 @@
         const chartContainer = document.getElementById('chart-container');
         const priceDisplay = document.getElementById('price');
         let lastPrice = 0;
+        let isFirstData = true;
 
-        // 1. Ініціалізація графіка з покращеними налаштуваннями
+        // 1. Створення графіка
         const chart = LightweightCharts.createChart(chartContainer, {
-            layout: {
-                background: { type: 'solid', color: '#000000' },
-                textColor: '#d1d4dc',
-                fontSize: 12,
-            },
+            layout: { background: { color: '#000000' }, textColor: '#d1d4dc' },
             grid: {
-                vertLines: { color: 'rgba(42, 46, 57, 0.2)' },
-                horzLines: { color: 'rgba(42, 46, 57, 0.2)' },
+                vertLines: { color: 'rgba(42, 46, 57, 0.1)' },
+                horzLines: { color: 'rgba(42, 46, 57, 0.1)' },
             },
             rightPriceScale: {
+                autoScale: true,
                 borderVisible: false,
-                autoScale: true, // Це виправляє проблему горизонтальних ліній
             },
             timeScale: {
                 borderVisible: false,
                 timeVisible: true,
                 secondsVisible: true,
+                shiftVisibleRangeOnNewBar: true, // Автоматичний зсув до нових даних
             },
-            crosshair: {
-                mode: LightweightCharts.CrosshairMode.Normal,
-                vertLine: { labelVisible: true },
-                horzLine: { labelVisible: true },
-            },
-            handleScale: {
-                mouseWheel: true,
-                pinch: true,
-            }
         });
 
-        // 2. Створення лінійної серії (виправлений синтаксис v4)
-        const lineSeries = chart.addSeries(LightweightCharts.LineSeries, {
-            color: '#00ffcc',
+        // 2. Створення серії
+        const lineSeries = chart.addSeries(LightweightCharts.AreaSeries, {
+            lineColor: '#00ffcc',
+            topColor: 'rgba(0, 255, 204, 0.2)',
+            bottomColor: 'rgba(0, 255, 204, 0.0)',
             lineWidth: 2,
-            priceLineVisible: true,
-            lastValueVisible: true,
-            priceFormat: {
-                type: 'price',
-                precision: 2,
-                minMove: 0.01,
-            },
         });
 
-        // Адаптація під розмір вікна
-        window.addEventListener('resize', () => {
-            chart.applyOptions({ 
-                width: chartContainer.clientWidth, 
-                height: chartContainer.clientHeight 
-            });
-        });
-
-        // 3. Робота з даними через WebSocket
+        // 3. WebSocket з виправленою логікою часу
         const socket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@kline_1m');
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             const kline = data.k;
-            
             const price = parseFloat(kline.c);
+            
+            // Binance дає час у мілісекундах, перетворюємо у секунди для бібліотеки
             const time = Math.floor(kline.t / 1000);
 
-            // Оновлення графіка
+            // Оновлюємо серію
             lineSeries.update({
                 time: time,
                 value: price
             });
 
-            // Оновлення відображення ціни з індикацією напрямку (зелений/червоний)
-            if (price > lastPrice) {
-                priceDisplay.style.color = '#00ffcc';
-            } else if (price < lastPrice) {
-                priceDisplay.style.color = '#ff4444';
+            // Якщо це найперші дані - фокусуємо графік, щоб побачити лінію
+            if (isFirstData) {
+                chart.timeScale().fitContent();
+                isFirstData = false;
             }
+
+            // Оновлення тексту ціни та кольору
+            priceDisplay.innerText = price.toFixed(2);
+            if (price > lastPrice) priceDisplay.style.color = '#00ffcc';
+            else if (price < lastPrice) priceDisplay.style.color = '#ff4444';
             
-            priceDisplay.innerText = price.toLocaleString('en-US', { minimumFractionDigits: 2 });
             lastPrice = price;
         };
 
-        socket.onerror = (error) => {
-            console.error('WebSocket Error:', error);
-        };
-
-        socket.onclose = () => {
-            console.log('З’єднання розірвано. Спробуйте оновити сторінку.');
-        };
+        // Адаптивність
+        window.addEventListener('resize', () => {
+            chart.applyOptions({ width: chartContainer.clientWidth, height: chartContainer.clientHeight });
+        });
     </script>
 </body>
 </html>
