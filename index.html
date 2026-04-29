@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AUD/USDT Live Trade</title>
+    <title>AUD/USDT Live Trade PRO</title>
     <style>
         body { margin: 0; background-color: #0c0d10; color: white; font-family: sans-serif; overflow: hidden; }
         #header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; height: 50px; background: #161a1e; border-bottom: 1px solid #2b2f36; }
@@ -15,22 +15,27 @@
 
     <div id="header">
         <div style="font-weight: bold;">AUD / USDT <span style="color: #848e9c; font-size: 12px; margin-left: 10px;">LIVE STREAM</span></div>
-        <div id="price">Завантаження...</div>
+        <div id="price">0.0000</div>
     </div>
 
-    <div id="tv_chart_container"></div>
+    <div id="tv_chart"></div>
 
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 
     <script>
-        // Чекаємо повного завантаження сторінки
-        window.onload = () => {
-            const container = document.getElementById('tv_chart_container');
+        document.addEventListener('DOMContentLoaded', () => {
+            // Перевірка, чи завантажилась бібліотека
+            if (typeof LightweightCharts === 'undefined') {
+                document.getElementById('price').innerText = "Помилка завантаження бібліотеки";
+                return;
+            }
+
+            const chartElement = document.getElementById('tv_chart');
             const priceDisplay = document.getElementById('price');
             let lastPrice = 0;
 
             // 1. Ініціалізація графіка
-            const chart = LightweightCharts.createChart(container, {
+            const chart = LightweightCharts.createChart(chartElement, {
                 width: window.innerWidth,
                 height: window.innerHeight - 51,
                 layout: { background: { color: '#0c0d10' }, textColor: '#707a8a' },
@@ -39,7 +44,7 @@
                 timeScale: { borderVisible: false, timeVisible: true, secondsVisible: true },
             });
 
-            // 2. Створення області графіка (Area)
+            // 2. Створення серії (Area)
             const areaSeries = chart.addAreaSeries({
                 lineColor: '#2ebd85',
                 topColor: 'rgba(46, 189, 133, 0.2)',
@@ -48,7 +53,7 @@
                 priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
             });
 
-            // 3. WebSocket підключення (Combined Stream для стабільності)
+            // 3. WebSocket підключення
             const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@trade');
 
             socket.onmessage = (event) => {
@@ -56,12 +61,12 @@
                 const price = parseFloat(data.p);
                 const time = Math.floor(data.T / 1000);
 
-                // Оновлюємо інтерфейс
                 if (price !== lastPrice) {
+                    // Оновлення тексту ціни
                     priceDisplay.innerText = price.toFixed(4);
                     priceDisplay.style.color = price >= lastPrice ? '#2ebd85' : '#f6465d';
                     
-                    // Додаємо точку на графік
+                    // Оновлення лінії на графіку
                     areaSeries.update({
                         time: time,
                         value: price
@@ -71,14 +76,18 @@
                 }
             };
 
-            // Обробка зміни розміру вікна
+            // Обробка зміни розміру вікна браузера
             window.addEventListener('resize', () => {
                 chart.applyOptions({ 
                     width: window.innerWidth, 
                     height: window.innerHeight - 51 
                 });
             });
-        };
+
+            socket.onerror = (err) => {
+                console.error("WS Error:", err);
+            };
+        });
     </script>
 </body>
 </html>
