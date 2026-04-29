@@ -2,66 +2,62 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Trade Fix LIVE</title>
+    <title>Trade Pro - BITCOIN LIVE</title>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
-        body { background-color: #0c0d10; color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        #header { padding: 15px; display: flex; justify-content: space-between; background: #141823; border-bottom: 1px solid #363c4e; }
-        #price { font-size: 24px; font-weight: bold; color: #26a69a; }
-        #chart { flex-grow: 1; width: 100%; }
+        html, body { height: 100%; margin: 0; padding: 0; background-color: #0c0d10; color: white; font-family: sans-serif; overflow: hidden; }
+        #header { height: 60px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; background: #141823; border-bottom: 1px solid #363c4e; }
+        #price { font-size: 26px; font-weight: bold; color: #26a69a; }
+        #chart { width: 100vw; height: calc(100vh - 60px); }
     </style>
 </head>
 <body>
     <div id="header">
-        <span>AUD / USD Live</span>
-        <div id="price">Чекаємо з'єднання...</div>
+        <span>BTC / USDT (Binance Live)</span>
+        <div id="price">Підключення до BTC...</div>
     </div>
     <div id="chart"></div>
 
     <script>
-        // Глобальні змінні, щоб вони були доступні всюди
-        var chart, lineSeries;
-
-        function init() {
+        window.addEventListener('load', () => {
             const container = document.getElementById('chart');
             
-            // 1. Створюємо графік
-            chart = LightweightCharts.createChart(container, {
+            const chart = LightweightCharts.createChart(container, {
                 layout: { background: { color: '#0c0d10' }, textColor: '#d1d4dc' },
                 grid: { vertLines: { color: '#1f222d' }, horzLines: { color: '#1f222d' } },
                 timeScale: { timeVisible: true, secondsVisible: true },
             });
 
-            // 2. Створюємо лінію ВІДРАЗУ
-            lineSeries = chart.addLineSeries({ color: '#26a69a', lineWidth: 2 });
+            // Налаштування для BTC: точність 2 знаки (наприклад, 65000.50)
+            const lineSeries = chart.addLineSeries({ 
+                color: '#f7931a', // Помаранчевий колір Bitcoin
+                lineWidth: 2,
+                priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
+            });
 
-            // 3. Тільки після створення лінії підключаємо Binance
-            const socket = new WebSocket('wss://stream.binance.com:9443/ws/audusdt@ticker');
-            
+            // МІНЯЄМО АДРЕСУ НА BTCUSDT
+            const socket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@ticker');
             let lastPrice = 0;
+
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 const price = parseFloat(data.c);
                 const priceEl = document.getElementById('price');
                 
-                priceEl.innerText = price.toFixed(4);
+                priceEl.innerText = price.toFixed(2) + " $";
                 priceEl.style.color = price >= lastPrice ? '#26a69a' : '#ef5350';
                 
-                // Тепер lineSeries точно існує глобально
                 lineSeries.update({
                     time: Math.floor(data.E / 1000),
                     value: price
                 });
                 lastPrice = price;
             };
-        }
 
-        // Запуск після завантаження сторінки
-        window.onload = init;
-
-        window.onresize = () => {
-            if (chart) chart.applyOptions({ width: document.getElementById('chart').clientWidth, height: document.getElementById('chart').clientHeight });
-        };
+            window.addEventListener('resize', () => {
+                chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+            });
+        });
     </script>
 </body>
 </html>
